@@ -591,6 +591,79 @@ type TestResult struct {
 	ContentSnippet string
 }
 
+// closeCommonPopups closes modal dialogs, overlays, and popup offers
+func closeCommonPopups(ctx context.Context) error {
+	// Common popup close button selectors
+	closeSelectors := []string{
+		// Generic close buttons
+		"button[aria-label='Close']",
+		"button.close",
+		"button[class*='close']",
+		"[class*='modal'] button[type='button']",
+		"[class*='popup'] button",
+		"[class*='dialog'] button[aria-label*='close' i]",
+		
+		// Booking.com specific
+		".bui-button--outline-destructive",
+		"button[data-testid='overlay-close']",
+		".bui-banner__close",
+		
+		// Generic offer/promo close
+		"[class*='overlay'] [class*='close']",
+		"[class*='offer'] button[type='button']",
+		
+		// Escape key alternative
+		"[role='dialog'] button:first-of-type",
+		"[role='alertdialog'] button",
+	}
+
+	for _, selector := range closeSelectors {
+		// Try to click the close button
+		script := fmt.Sprintf(`
+			(function() {
+				try {
+					const element = document.querySelector('%s');
+					if (element && element.offsetParent !== null) {
+						element.click();
+						return true;
+					}
+				} catch(e) {}
+				return false;
+			})();
+		`, selector)
+
+		var found bool
+		err := chromedp.Evaluate(script, &found).Do(ctx)
+		if err == nil && found {
+			// Small delay after clicking
+			time.Sleep(500 * time.Millisecond)
+			return nil
+		}
+	}
+
+	// Try pressing Escape key as fallback
+	err := chromedp.Evaluate(`
+		(function() {
+			try {
+				const event = new KeyboardEvent('keydown', {
+					key: 'Escape',
+					code: 'Escape',
+					keyCode: 27,
+					which: 27,
+					bubbles: true,
+					cancelable: true
+				});
+				document.dispatchEvent(event);
+				return true;
+			} catch(e) {
+				return false;
+			}
+		})();
+	`, nil).Do(ctx)
+
+	return err
+}
+
 // TestURL tests a website for Cloudflare and content availability
 func TestURL(testURL string) TestResult {
 	result := TestResult{URL: testURL}
@@ -654,6 +727,11 @@ func TestURL(testURL string) TestResult {
 
 		// Final wait for dynamic content
 		chromedp.Sleep(5 * time.Second),
+
+		// Close popups and modals
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			return closeCommonPopups(ctx)
+		}),
 
 		// Get title and content
 		chromedp.Title(&title),
