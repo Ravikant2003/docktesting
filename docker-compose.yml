@@ -41,6 +41,7 @@ services:
         --no-first-run
         --safebrowsing-disable-auto-update
         --enable-automation=false
+        --disable-http2
       
       # Stealth specific
       STEALTH: "true"
