@@ -619,6 +619,9 @@ func TestURL(testURL string) TestResult {
 	var title string
 	var bodyHTML string
 	var buf []byte
+	
+	// Create behavior simulator
+	bs := NewBehaviorSimulator()
 
 	err := chromedp.Run(browserCtx,
 		// Inject stealth
@@ -627,14 +630,30 @@ func TestURL(testURL string) TestResult {
 			return err
 		}),
 
-		// Random delay
+		// Random initial delay (pre-navigation)
 		chromedp.Sleep(time.Duration(rand.Intn(2000)+500) * time.Millisecond),
 
 		// Navigate
 		chromedp.Navigate(testURL),
 
-		// Wait for page (longer for Cloudflare challenge)
-		chromedp.Sleep(15 * time.Second),
+		// Wait for initial page load
+		chromedp.Sleep(5 * time.Second),
+
+		// Simulate user behavior - scrolling and mouse movement
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			return bs.SimulateUserInteraction(ctx)
+		}),
+
+		// Wait for more content to load
+		chromedp.Sleep(3 * time.Second),
+
+		// Additional user interaction
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			return bs.SimulateUserInteraction(ctx)
+		}),
+
+		// Final wait for dynamic content
+		chromedp.Sleep(5 * time.Second),
 
 		// Get title and content
 		chromedp.Title(&title),
