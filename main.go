@@ -715,18 +715,38 @@ func main() {
 			type_: "HARD",
 		},
 		{
-			name:  "Cloudflare's Own Site",
-			url:   "https://www.cloudflare.com/",
+			name:  "Amazon.com (E-commerce)",
+			url:   "https://www.amazon.com/",
+			type_: "MEDIUM-HARD",
+		},
+		{
+			name:  "Flipkart.in (Indian E-commerce)",
+			url:   "https://www.flipkart.com/",
 			type_: "MEDIUM",
+		},
+		{
+			name:  "OLX.in (Classifieds)",
+			url:   "https://www.olx.in/",
+			type_: "MEDIUM",
+		},
+		{
+			name:  "Booking.com (Travel)",
+			url:   "https://www.booking.com/",
+			type_: "MEDIUM",
+		},
+		{
+			name:  "Indeed.com (Job Board)",
+			url:   "https://www.indeed.com/",
+			type_: "MEDIUM",
+		},
+		{
+			name:  "Reddit.com (Social)",
+			url:   "https://www.reddit.com/",
+			type_: "EASY-MEDIUM",
 		},
 		{
 			name:  "Example.com (Basic CF)",
 			url:   "https://example.com/",
-			type_: "EASY",
-		},
-		{
-			name:  "Web Scraping Service (No CF)",
-			url:   "https://www.scrapehero.com/",
 			type_: "EASY",
 		},
 	}
