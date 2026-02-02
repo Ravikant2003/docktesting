@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  browserless:
+    image: browserless/chrome:latest
+    container_name: stealth-browserless
+    ports:
+      - "3000:3000"
+    environment:
+      # Core settings
+      DEBUG: "browserless*"
+      DEFAULT_LAUNCH_ARGS: >-
+        --disable-blink-features=AutomationControlled
+        --disable-dev-shm-usage
+        --no-first-run
+        --no-default-browser-check
+        --disable-popup-blocking
+        --disable-extensions
+        --disable-sync
+        --disable-plugins
+        --disable-images
+        --disable-component-extensions-with-background-pages
+        --disable-default-apps
+        --disable-preconnect
+        --disable-background-timer-throttling
+        --disable-backgrounding-occluded-windows
+        --disable-breakpad
+        --disable-client-side-phishing-detection
+        --disable-component-extensions
+        --disable-component-update
+        --disable-default-apps
+        --disable-hang-monitor
+        --disable-ipc-flooding-protection
+        --disable-popup-blocking
+        --disable-prompt-on-repost
+        --disable-renderer-backgrounding
+        --disable-sync
+        --metrics-recording-only
+        --mute-audio
+        --no-default-browser-check
+        --no-first-run
+        --safebrowsing-disable-auto-update
+        --enable-automation=false
+      
+      # Stealth specific
+      STEALTH: "true"
+      DISABLE_AUTO_REFRESH: "true"
+      DISABLE_CRASH_REPORTING: "true"
+      
+      # Connection settings
+      CONNECTION_TIMEOUT: "30000"
+      FUNCTION_CALL_TIMEOUT: "60000"
+      
+      # Max concurrent sessions
+      MAX_CONCURRENT_SESSIONS: "10"
+      QUEUE_LENGTH: "20"
+    
+    networks:
+      - stealth-network
+    
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/json/version"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+networks:
+  stealth-network:
+    driver: bridge
