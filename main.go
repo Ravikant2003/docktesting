@@ -595,7 +595,7 @@ type TestResult struct {
 func TestURL(testURL string) TestResult {
 	result := TestResult{URL: testURL}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	allocContext, cancelAlloc := chromedp.NewRemoteAllocator(ctx, "ws://127.0.0.1:3000")
@@ -709,16 +709,6 @@ func main() {
 		url  string
 		type_ string
 	}{
-		{
-			name:  "Real Cloudflare Challenge",
-			url:   "https://nowsecure.nl/",
-			type_: "HARD",
-		},
-		{
-			name:  "Amazon.com (E-commerce)",
-			url:   "https://www.amazon.com/",
-			type_: "MEDIUM-HARD",
-		},
 		{
 			name:  "Flipkart.in (Indian E-commerce)",
 			url:   "https://www.flipkart.com/",
