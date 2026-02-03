@@ -815,6 +815,14 @@ func main() {
 	}
 	proxyConfig.PrintConfiguration()
 
+	// Initialize ScraperAPI configuration
+	scraperConfig := NewScraperAPIConfig()
+	err = scraperConfig.ValidateConfiguration()
+	if err != nil {
+		fmt.Printf("⚠️  ScraperAPI configuration error: %v\n", err)
+	}
+	scraperConfig.PrintConfiguration()
+
 	// Define test URLs
 	testURLs := []struct {
 		name string
