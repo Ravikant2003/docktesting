@@ -48,6 +48,16 @@ services:
       DISABLE_AUTO_REFRESH: "true"
       DISABLE_CRASH_REPORTING: "true"
       
+      # Proxy Configuration (optional - set these for proxy routing)
+      # Formats supported:
+      # HTTP:   http://[user:pass@]host:port
+      # HTTPS:  https://[user:pass@]host:port
+      # SOCKS5: socks5://[user:pass@]host:port
+      PROXY_URL: ""
+      # Examples:
+      # PROXY_URL: "http://username:password@proxy.example.com:8080"
+      # PROXY_URL: "socks5://proxy.example.com:1080"
+      
       # Connection settings
       CONNECTION_TIMEOUT: "30000"
       FUNCTION_CALL_TIMEOUT: "60000"

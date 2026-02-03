@@ -807,6 +807,14 @@ func main() {
 
 	rand.Seed(time.Now().UnixNano())
 
+	// Initialize proxy configuration
+	proxyConfig := NewProxyConfig()
+	err := proxyConfig.ValidateConfiguration()
+	if err != nil {
+		fmt.Printf("⚠️  Proxy configuration error: %v\n", err)
+	}
+	proxyConfig.PrintConfiguration()
+
 	// Define test URLs
 	testURLs := []struct {
 		name string
