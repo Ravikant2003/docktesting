@@ -347,7 +347,20 @@ docker run -e PROXY_URL="http://proxy:8080" \
   browserless/chrome:latest
 ```
 
-See **DEPLOYMENT_GUIDE.md** for full enterprise setup.
+### With ScraperAPI (Recommended for Cloudflare Bypass)
+```bash
+# Sign up for FREE: https://www.scraperapi.com/signup
+# Free tier: 1,000 requests/month
+
+export SCRAPER_API_KEY="your_free_api_key"
+docker-compose up -d
+
+# In your code:
+# scraperapi.go handles URL transformation automatically
+# Cloudflare-blocked sites like Booking.com and Indeed.com now work!
+```
+
+See **SCRAPERAPI_GUIDE.md** for detailed setup and **PROXY_INTEGRATION.md** for other proxy options.
 
 ---
 
