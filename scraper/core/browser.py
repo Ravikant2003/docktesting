@@ -55,6 +55,11 @@ class FusionConfig:
     enable_cloudflare_bypass: bool = True
     inject_stealth_scripts: bool = True
     human_like_delays: bool = True
+    
+    # VLM CAPTCHA Solver settings
+    vlm_enabled: bool = False
+    ollama_host: str = "http://localhost:11434"
+    ollama_model: str = "minicpm-v:8b"
 
 
 class DockerPydollFusion:
@@ -78,6 +83,7 @@ class DockerPydollFusion:
         self._tab = None
         self._handler = None
         self._patched = False
+        self._vlm_solver = None
         
     def _patch_pydoll_validator(self):
         """Patch Pydoll to accept Docker's short WebSocket URL"""
@@ -289,8 +295,151 @@ class DockerPydollFusion:
         else:
             await self.execute_script(f"window.scrollBy(0, {pixels})")
     
+    async def _get_captcha_screenshot(self) -> Optional[bytes]:
+        """Take a screenshot of the current page for CAPTCHA analysis"""
+        try:
+            import base64
+            result = await self._handler.execute_command({
+                'method': 'Page.captureScreenshot',
+                'params': {'format': 'png'}
+            }, timeout=self.config.command_timeout)
+            
+            data = result.get('result', {}).get('data')
+            if data:
+                return base64.b64decode(data)
+        except Exception as e:
+            logger.error(f"CAPTCHA screenshot failed: {e}")
+        return None
+    
+    async def _init_vlm_solver(self):
+        """Initialize VLM solver if enabled"""
+        if self._vlm_solver is None and self.config.vlm_enabled:
+            from ..utils.vlm_solver import VLMSolver, VLMConfig
+            vlm_config = VLMConfig(
+                ollama_host=self.config.ollama_host,
+                model=self.config.ollama_model,
+            )
+            self._vlm_solver = VLMSolver(vlm_config)
+        return self._vlm_solver
+    
+    async def detect_captcha(self) -> Optional[str]:
+        """
+        Detect if there's a CAPTCHA on the current page.
+        
+        Returns:
+            CAPTCHA type string or None if no CAPTCHA detected
+        """
+        source = await self.get_page_source()
+        
+        captcha_indicators = {
+            'recaptcha': ['g-recaptcha', 'recaptcha', 'rc-imageselect'],
+            'hcaptcha': ['h-captcha', 'hcaptcha'],
+            'cloudflare': ['cf-turnstile', 'challenge-running'],
+            'slider': ['slider-captcha', 'slide-verify', 'geetest'],
+            'text': ['captcha-image', 'captcha-input'],
+        }
+        
+        for captcha_type, indicators in captcha_indicators.items():
+            if any(ind.lower() in source.lower() for ind in indicators):
+                logger.info(f"Detected CAPTCHA type: {captcha_type}")
+                return captcha_type
+        
+        return None
+    
+    async def solve_captcha(self, hint: str = "") -> bool:
+        """
+        Attempt to solve any CAPTCHA on the current page using VLM.
+        
+        Args:
+            hint: Optional hint about what to look for (e.g., "traffic lights")
+        
+        Returns:
+            True if CAPTCHA was solved successfully
+        """
+        if not self.config.vlm_enabled:
+            logger.warning("VLM solver not enabled. Set vlm_enabled=True in config.")
+            return False
+        
+        solver = await self._init_vlm_solver()
+        if not solver:
+            logger.error("Failed to initialize VLM solver")
+            return False
+        
+        # Detect CAPTCHA type
+        captcha_type = await self.detect_captcha()
+        if not captcha_type:
+            logger.info("No CAPTCHA detected on page")
+            return True  # No CAPTCHA = success
+        
+        logger.info(f"Attempting to solve {captcha_type} CAPTCHA with VLM...")
+        
+        # Take screenshot for analysis
+        screenshot_bytes = await self._get_captcha_screenshot()
+        if not screenshot_bytes:
+            logger.error("Failed to capture CAPTCHA screenshot")
+            return False
+        
+        # Convert to base64
+        import base64
+        image_b64 = base64.b64encode(screenshot_bytes).decode('utf-8')
+        
+        # Solve with VLM
+        from ..utils.vlm_solver import CaptchaType
+        solution = await solver.solve(image_b64, hint)
+        
+        if not solution.success:
+            logger.error(f"VLM failed to solve CAPTCHA: {solution.raw_response}")
+            return False
+        
+        logger.info(f"VLM solution: {solution.solution}")
+        
+        # Apply solution based on type
+        try:
+            if solution.captcha_type == CaptchaType.RECAPTCHA_IMAGE:
+                # Click on identified cells
+                cells = solution.solution
+                if cells:
+                    # This requires knowing the grid element positions
+                    # For now, log the solution
+                    logger.info(f"Image selection: click cells {cells}")
+                    # TODO: Implement cell clicking based on grid layout
+                    
+            elif solution.captcha_type == CaptchaType.TEXT_DISTORTED:
+                # Type the text into the input field
+                text = solution.solution
+                await self.type_text('css', 'input[name*="captcha"], input.captcha-input', text)
+                
+            elif solution.captcha_type == CaptchaType.MATH:
+                # Type the answer
+                answer = solution.solution
+                await self.type_text('css', 'input[name*="captcha"], input.captcha-input', answer)
+                
+            elif solution.captcha_type == CaptchaType.SLIDER:
+                # Slider requires drag action
+                position = solution.solution
+                logger.info(f"Slider position: drag to x={position.get('x', 0)}")
+                # TODO: Implement drag action
+            
+            # Wait and check if CAPTCHA is gone
+            await asyncio.sleep(2)
+            new_captcha = await self.detect_captcha()
+            
+            if not new_captcha:
+                logger.info("CAPTCHA solved successfully!")
+                return True
+            else:
+                logger.warning(f"CAPTCHA still present: {new_captcha}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Failed to apply CAPTCHA solution: {e}")
+            return False
+    
     async def close(self):
         """Close the browser connection"""
+        if self._vlm_solver:
+            await self._vlm_solver.close()
+            self._vlm_solver = None
         self._browser = None
         self._tab = None
         self._handler = None

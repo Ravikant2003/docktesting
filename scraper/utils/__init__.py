@@ -5,6 +5,7 @@ Utility modules - Helper components
 from .captcha import CaptchaDetector, CaptchaType
 from .proxy import ProxyManager, ProxyConfig
 from .stealth import StealthConfig, inject_stealth
+from .vlm_solver import VLMSolver, VLMConfig, CaptchaSolution
 
 __all__ = [
     "CaptchaDetector",
@@ -13,4 +14,7 @@ __all__ = [
     "ProxyConfig",
     "StealthConfig",
     "inject_stealth",
+    "VLMSolver",
+    "VLMConfig",
+    "CaptchaSolution",
 ]

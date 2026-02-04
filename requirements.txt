@@ -5,11 +5,12 @@
 # Core
 pydoll>=1.0.0
 websockets>=12.0
+httpx>=0.25.0
 
 # Optional - for testing
 pytest>=7.0.0
 pytest-asyncio>=0.21.0
 
-# Optional - for VLM CAPTCHA solving (future)
-# openai>=1.0.0
-# anthropic>=0.5.0
+# VLM CAPTCHA solving (requires Ollama installed separately)
+# Install Ollama: brew install ollama
+# Pull model: ollama pull minicpm-v:8b
