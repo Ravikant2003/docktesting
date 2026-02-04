@@ -6,6 +6,8 @@ services:
     container_name: stealth-browserless
     ports:
       - "3000:3000"
+    env_file:
+      - .env
     environment:
       # Core settings
       DEBUG: "browserless*"
@@ -18,7 +20,6 @@ services:
         --disable-extensions
         --disable-sync
         --disable-plugins
-        --disable-images
         --disable-component-extensions-with-background-pages
         --disable-default-apps
         --disable-preconnect
@@ -28,39 +29,25 @@ services:
         --disable-client-side-phishing-detection
         --disable-component-extensions
         --disable-component-update
-        --disable-default-apps
         --disable-hang-monitor
         --disable-ipc-flooding-protection
-        --disable-popup-blocking
         --disable-prompt-on-repost
         --disable-renderer-backgrounding
-        --disable-sync
         --metrics-recording-only
         --mute-audio
-        --no-default-browser-check
-        --no-first-run
         --safebrowsing-disable-auto-update
         --enable-automation=false
         --disable-http2
+        --proxy-server=http://proxy-server.scraperapi.com:8001
       
       # Stealth specific
       STEALTH: "true"
       DISABLE_AUTO_REFRESH: "true"
       DISABLE_CRASH_REPORTING: "true"
       
-      # Proxy Configuration (optional - set these for proxy routing)
-      # Formats supported:
-      # HTTP:   http://[user:pass@]host:port
-      # HTTPS:  https://[user:pass@]host:port
-      # SOCKS5: socks5://[user:pass@]host:port
-      PROXY_URL: ""
-      # Examples:
-      # PROXY_URL: "http://username:password@proxy.example.com:8080"
-      # PROXY_URL: "socks5://proxy.example.com:1080"
-      
       # Connection settings
-      CONNECTION_TIMEOUT: "30000"
-      FUNCTION_CALL_TIMEOUT: "60000"
+      CONNECTION_TIMEOUT: "60000"
+      FUNCTION_CALL_TIMEOUT: "120000"
       
       # Max concurrent sessions
       MAX_CONCURRENT_SESSIONS: "10"
