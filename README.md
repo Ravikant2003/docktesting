@@ -183,7 +183,7 @@ pytest scraper/tests/ -v
 │  scraper/__init__.py (Package Entry)                                         │
 │  ────────────────────────────────────                                        │
 │  - Exports: DockerPydollFusion, FusionConfig                                 │
-│  - Exports: CaptchaDetector, ProxyManager, StealthConfig                     │
+│  - Exports: CDPClient, CDPConfig                                             │
 │  - Provides clean public API for the package                                 │
 └──────────────────────────────────┬───────────────────────────────────────────┘
                                    │
@@ -200,8 +200,9 @@ pytest scraper/tests/ -v
 │       ├─ Checks Docker Chrome is running (HTTP /json/version)                │
 │       ├─ Creates Pydoll Chrome instance                                      │
 │       ├─ Connects via WebSocket to Docker Chrome                             │
-│       ├─ Calls _inject_stealth() for fingerprint masking                     │
-│       └─ Enables Cloudflare auto-bypass                                      │
+│       ├─ Gets _connection_handler from Pydoll tab                            │
+│       ├─ Calls _inject_stealth() → stealth.py                                │
+│       └─ Enables Cloudflare auto-bypass via Pydoll                           │
 │                                                                              │
 │    3. navigate(url)                                                          │
 │       ├─ Calls Pydoll's go_to(url)                                           │
@@ -211,7 +212,7 @@ pytest scraper/tests/ -v
 │       └─ Polls page source for Cloudflare indicators                         │
 │                                                                              │
 │    5. screenshot(path)                                                       │
-│       └─ CDP Page.captureScreenshot command                                  │
+│       └─ CDP Page.captureScreenshot via _handler                             │
 │                                                                              │
 │  class FusionConfig:                                                         │
 │    - docker_host, docker_port                                                │
@@ -220,42 +221,43 @@ pytest scraper/tests/ -v
 │    - human_like_delays, page_load_wait                                       │
 └──────────────────────────────────┬───────────────────────────────────────────┘
                                    │
-              ┌────────────────────┼────────────────────┐
-              │                    │                    │
-              ▼                    ▼                    ▼
-┌─────────────────────┐ ┌─────────────────────┐ ┌─────────────────────┐
-│ scraper/utils/      │ │ scraper/utils/      │ │ scraper/utils/      │
-│ stealth.py          │ │ captcha.py          │ │ proxy.py            │
-│ ────────────────    │ │ ────────────────    │ │ ────────────────    │
-│                     │ │                     │ │                     │
-│ StealthConfig:      │ │ CaptchaType (enum): │ │ ProxyConfig:        │
-│ - user_agent        │ │ - CLOUDFLARE        │ │ - host, port        │
-│ - platform          │ │ - RECAPTCHA_V2/V3   │ │ - username, pass    │
-│ - languages         │ │ - HCAPTCHA          │ │ - protocol          │
-│                     │ │ - SLIDER            │ │                     │
-│ inject_stealth():   │ │ - GEETEST           │ │ ProxyManager:       │
-│ - UA override       │ │                     │ │ - add_proxy()       │
-│ - webdriver=undef   │ │ CaptchaDetector:    │ │ - get_proxy()       │
-│ - chrome object     │ │ - detect(html)      │ │ - rotate()          │
-│ - plugins array     │ │ - returns type      │ │ - health_check()    │
-│ - WebGL spoof       │ │                     │ │                     │
-└─────────────────────┘ └─────────────────────┘ └─────────────────────┘
-              │
-              │ CDP Commands
-              ▼
+                                   │ _inject_stealth() calls
+                                   ▼
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│  scraper/core/cdp.py (Low-Level CDP Client)                                  │
-│  ───────────────────────────────────────────                                 │
+│  scraper/utils/stealth.py (Stealth Injection)                                │
+│  ─────────────────────────────────────────────                               │
 │                                                                              │
-│  class CDPClient:                                                            │
-│    - connect(ws_url) - WebSocket connection                                  │
-│    - send_command(method, params) - Send CDP command                         │
-│    - Emulation.setUserAgentOverride                                          │
-│    - Page.addScriptToEvaluateOnNewDocument                                   │
-│    - Page.captureScreenshot                                                  │
-│    - Runtime.evaluate                                                        │
+│  inject_stealth(handler, config, timeout):                                   │
+│    Uses Pydoll's _connection_handler to send CDP commands:                   │
 │                                                                              │
-│  (Used for direct CDP when Pydoll doesn't expose a method)                   │
+│    1. Network.enable                                                         │
+│    2. Network.setUserAgentOverride                                           │
+│       └─ "HeadlessChrome" → "Chrome/120.0.0.0"                               │
+│    3. Page.addScriptToEvaluateOnNewDocument                                  │
+│       └─ Injects JavaScript for:                                             │
+│          - navigator.webdriver = undefined                                   │
+│          - window.chrome object                                              │
+│          - navigator.plugins array                                           │
+│          - navigator.languages                                               │
+│          - WebGL vendor/renderer spoofing                                    │
+│                                                                              │
+│  class StealthConfig:                                                        │
+│    - user_agent, platform, languages                                         │
+│    - vendor, webgl_vendor, webgl_renderer                                    │
+└──────────────────────────────────┬───────────────────────────────────────────┘
+                                   │
+                                   │ CDP Commands via Pydoll handler
+                                   ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                     PYDOLL LIBRARY (External)                                 │
+│  ─────────────────────────────────────────────                               │
+│                                                                              │
+│  - Chrome.connect(ws_url) → establishes WebSocket                            │
+│  - Tab._connection_handler → executes CDP commands                           │
+│  - Tab.enable_auto_solve_cloudflare_captcha() → Turnstile bypass             │
+│  - Tab.go_to(url), Tab.page_source, Tab.current_url                          │
+│  - Tab.find_or_wait_element(), Element.click(), Element.send_keys()          │
+│                                                                              │
 └──────────────────────────────────┬───────────────────────────────────────────┘
                                    │
                                    │ WebSocket (ws://localhost:3000)
@@ -289,6 +291,38 @@ pytest scraper/tests/ -v
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
+### Utility Modules (Not in Main Flow)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  These modules are available but not used in the default scraping flow:     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  scraper/utils/captcha.py          │  scraper/utils/proxy.py               │
+│  ─────────────────────────         │  ─────────────────────                 │
+│                                    │                                        │
+│  CaptchaType (enum):               │  ProxyConfig:                          │
+│  - CLOUDFLARE_TURNSTILE            │  - host, port, username, password      │
+│  - RECAPTCHA_V2 / V3               │  - protocol (http/socks5)              │
+│  - HCAPTCHA                        │                                        │
+│  - SLIDER                          │  ProxyManager:                         │
+│  - GEETEST                         │  - add_proxy(), get_proxy()            │
+│                                    │  - rotate(), health_check()            │
+│  CaptchaDetector:                  │                                        │
+│  - detect(html) → CaptchaType      │  (For future residential proxy use)    │
+│  - Identifies CAPTCHA on page      │                                        │
+│                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  scraper/core/cdp.py                                                        │
+│  ────────────────────                                                       │
+│                                                                             │
+│  CDPClient: Low-level CDP client for direct WebSocket communication         │
+│  - Alternative to Pydoll when more control is needed                        │
+│  - Not used by default (DockerPydollFusion uses Pydoll's handler)           │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
 ### File Responsibilities Summary
 
 | File | Purpose | Key Functions/Classes |
@@ -305,40 +339,36 @@ pytest scraper/tests/ -v
 ### Stealth Injection Flow
 
 ```
-connect() called
+connect() called in DockerPydollFusion
+     │
+     ▼
+_inject_stealth() → calls stealth.py
      │
      ▼
 ┌─────────────────────────────────────┐
-│ 1. Emulation.setUserAgentOverride   │
+│ 1. Network.setUserAgentOverride     │
 │    "HeadlessChrome" → "Chrome/120"  │
 └─────────────────────────────────────┘
      │
      ▼
 ┌─────────────────────────────────────┐
 │ 2. Page.addScriptToEvaluate...      │
-│    navigator.webdriver = undefined  │
+│    (Single JS injection with all):  │
 └─────────────────────────────────────┘
      │
-     ▼
-┌─────────────────────────────────────┐
-│ 3. Inject window.chrome object      │
-│    Fake Chrome runtime API          │
-└─────────────────────────────────────┘
+     ├─► navigator.webdriver = undefined
+     │
+     ├─► window.chrome = { runtime: {}, ... }
+     │
+     ├─► navigator.plugins = [1,2,3,4,5]
+     │
+     ├─► navigator.languages = ["en-US","en"]
+     │
+     └─► WebGL: vendor="Intel Inc."
+         renderer="Intel Iris Pro Graphics"
      │
      ▼
-┌─────────────────────────────────────┐
-│ 4. Spoof navigator.plugins          │
-│    Add fake PDF/Flash plugins       │
-└─────────────────────────────────────┘
-     │
-     ▼
-┌─────────────────────────────────────┐
-│ 5. WebGL vendor/renderer override   │
-│    "Google Inc." → "Intel Inc."     │
-└─────────────────────────────────────┘
-     │
-     ▼
-  STEALTH READY
+  STEALTH READY → Cloudflare bypass enabled
 ```
 
 ---
