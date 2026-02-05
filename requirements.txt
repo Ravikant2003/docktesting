@@ -3,7 +3,7 @@
 # Python dependencies
 
 # Core
-pydoll>=1.0.0
+pydoll-python>=1.0.0
 websockets>=12.0
 httpx>=0.25.0
 

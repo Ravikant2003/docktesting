@@ -6,8 +6,6 @@ services:
     container_name: stealth-browserless
     ports:
       - "3000:3000"
-    env_file:
-      - .env
     environment:
       # Core settings
       DEBUG: "browserless*"
@@ -39,6 +37,7 @@ services:
         --enable-automation=false
         --disable-http2
         --proxy-server=http://proxy-server.scraperapi.com:8001
+        --window-size=1920,1080
       
       # Stealth specific
       STEALTH: "true"

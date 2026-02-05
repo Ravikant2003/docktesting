@@ -6,9 +6,9 @@ Docker + Pydoll Fusion Scraper
 Main entry point for running the scraper.
 
 Usage:
-    python main.py                     # Run demo
-    python main.py --url https://...   # Scrape a URL
-    python main.py --test              # Run tests
+    python3 main.py                     # Run demo
+    python3 main.py --url https://...   # Scrape a URL
+    python3 main.py --test              # Run tests
 """
 
 import asyncio

@@ -55,7 +55,7 @@ async def inject_stealth(handler, config: StealthConfig, timeout: int = 30):
     stealth_js = f'''
     // Remove webdriver flag
     Object.defineProperty(navigator, 'webdriver', {{ get: () => undefined }});
-    
+
     // Add chrome object
     window.chrome = {{
         runtime: {{}},
@@ -63,21 +63,47 @@ async def inject_stealth(handler, config: StealthConfig, timeout: int = 30):
         csi: function() {{ return {{}}; }},
         app: {{}}
     }};
-    
+
     // Fix navigator properties
-    Object.defineProperty(navigator, 'plugins', {{ 
-        get: () => [1, 2, 3, 4, 5] 
+    Object.defineProperty(navigator, 'plugins', {{ get: () => [1, 2, 3, 4, 5] }});
+    Object.defineProperty(navigator, 'languages', {{ get: () => {json.dumps(config.languages)} }});
+    Object.defineProperty(navigator, 'platform', {{ get: () => 'MacIntel' }});
+    Object.defineProperty(navigator, 'vendor', {{ get: () => '{config.vendor}' }});
+
+    // Spoof timezone
+    Object.defineProperty(Intl.DateTimeFormat().resolvedOptions(), 'timeZone', {{ get: () => 'America/New_York' }});
+
+    // Spoof hardwareConcurrency
+    Object.defineProperty(navigator, 'hardwareConcurrency', {{ get: () => 8 }});
+
+    // Spoof mediaDevices
+    if (navigator.mediaDevices) {{
+        Object.defineProperty(navigator.mediaDevices, 'enumerateDevices', {{
+            value: () => Promise.resolve([
+                {{ kind: 'audioinput', label: 'Microphone', deviceId: 'default' }},
+                {{ kind: 'audiooutput', label: 'Speaker', deviceId: 'default' }},
+                {{ kind: 'videoinput', label: 'Webcam', deviceId: 'default' }}
+            ])
+        }})
+    }}
+
+    // Spoof screen properties
+    Object.defineProperty(window, 'outerWidth', {{ get: () => 1920 }});
+    Object.defineProperty(window, 'outerHeight', {{ get: () => 1080 }});
+    Object.defineProperty(window.screen, 'width', {{ get: () => 1920 }});
+    Object.defineProperty(window.screen, 'height', {{ get: () => 1080 }});
+    Object.defineProperty(window, 'devicePixelRatio', {{ get: () => 1 }});
+
+    // Simulate mouse movement
+    window.addEventListener('DOMContentLoaded', function() {{
+        let evt = new MouseEvent('mousemove', {{
+            clientX: 100,
+            clientY: 100,
+            bubbles: true
+        }});
+        document.dispatchEvent(evt);
     }});
-    Object.defineProperty(navigator, 'languages', {{ 
-        get: () => {json.dumps(config.languages)}
-    }});
-    Object.defineProperty(navigator, 'platform', {{
-        get: () => 'MacIntel'
-    }});
-    Object.defineProperty(navigator, 'vendor', {{
-        get: () => '{config.vendor}'
-    }});
-    
+
     // Fix permissions query
     const originalQuery = window.navigator.permissions.query;
     window.navigator.permissions.query = (parameters) => (
@@ -85,7 +111,7 @@ async def inject_stealth(handler, config: StealthConfig, timeout: int = 30):
             Promise.resolve({{ state: Notification.permission }}) :
             originalQuery(parameters)
     );
-    
+
     // WebGL vendor/renderer spoofing
     const getParameter = WebGLRenderingContext.prototype.getParameter;
     WebGLRenderingContext.prototype.getParameter = function(parameter) {{
